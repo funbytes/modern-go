@@ -7,10 +7,11 @@
 package gls
 
 import (
-	"bitbucket.org/puzzleplusservice/puzlib/gls/g"
 	"io"
 	"sync"
 	"unsafe"
+
+	"github.com/funbytes/modern-go/gls/g"
 )
 
 const shardsCount = 32
