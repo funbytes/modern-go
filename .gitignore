@@ -1,0 +1,9 @@
+*~
+*.pyc
+bin/
+.vscode
+\#*\#
+.idea/
+cmd/server/__debug_bin
+**/.DS_Store
+configs/local.toml
