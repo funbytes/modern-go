@@ -10,7 +10,7 @@ type Queue struct {
 	lock *sync.RWMutex
 }
 
-//新建一个队列
+// 新建一个队列
 func NewQueue() *Queue {
 	this := new(Queue)
 	this.list = list.New()
@@ -18,66 +18,66 @@ func NewQueue() *Queue {
 	return this
 }
 
-//返回队列长度
-func (this *Queue) Length() int {
-	this.lock.RLock()
-	l := this.list.Len()
-	this.lock.RUnlock()
+// 返回队列长度
+func (q *Queue) Length() int {
+	q.lock.RLock()
+	l := q.list.Len()
+	q.lock.RUnlock()
 	return l
 }
 
-//返回队列头
-func (this *Queue) Front() interface{} {
-	this.lock.RLock()
-	e := this.list.Front()
+// 返回队列头
+func (q *Queue) Front() interface{} {
+	q.lock.RLock()
+	e := q.list.Front()
 	if e != nil {
-		this.lock.RUnlock()
+		q.lock.RUnlock()
 		return e.Value
 	}
-	this.lock.RUnlock()
+	q.lock.RUnlock()
 	return nil
 }
 
-//队列尾部插入元素
-func (this *Queue) Push(v interface{}) *list.Element {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	return this.list.PushBack(v)
+// 队列尾部插入元素
+func (q *Queue) Push(v interface{}) *list.Element {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	return q.list.PushBack(v)
 
 }
 
-func (this *Queue) Remove(e *list.Element) {
-	this.lock.Lock()
-	defer this.lock.Unlock()
+func (q *Queue) Remove(e *list.Element) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 	if e != nil {
-		this.list.Remove(e)
+		q.list.Remove(e)
 	}
 }
 
-//队列头部弹出元素
-func (this *Queue) Pop() interface{} {
-	this.lock.Lock()
-	e := this.list.Front()
+// 队列头部弹出元素
+func (q *Queue) Pop() interface{} {
+	q.lock.Lock()
+	e := q.list.Front()
 	if e != nil {
 		value := e.Value
-		this.list.Remove(e)
-		this.lock.Unlock()
+		q.list.Remove(e)
+		q.lock.Unlock()
 		return value
 	}
-	this.lock.Unlock()
+	q.lock.Unlock()
 	return nil
 }
 
-//移动到队尾
-func (this *Queue) MoveBack(e *list.Element) {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	this.list.MoveToBack(e)
+// 移动到队尾
+func (q *Queue) MoveBack(e *list.Element) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	q.list.MoveToBack(e)
 }
 
-//清空队列
-func (this *Queue) Clear() {
-	this.lock.Lock()
-	this.list = this.list.Init()
-	this.lock.Unlock()
+// 清空队列
+func (q *Queue) Clear() {
+	q.lock.Lock()
+	q.list = q.list.Init()
+	q.lock.Unlock()
 }

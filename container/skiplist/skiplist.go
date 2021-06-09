@@ -63,21 +63,21 @@ func NewSet() *Set {
 	}
 }
 
-func (this *Set) createNode(key string, score float64) *node {
+func (s *Set) createNode(key string, score float64) *node {
 	n := new(node)
 	n.key = key
 	n.score = score
 	return n
 }
 
-//根据排名获取node 按升序获得 rank 从1开始
-func (this *Set) GetElementByRankASC(rank int64) Node {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
+// 根据排名获取node 按升序获得 rank 从1开始
+func (s *Set) GetElementByRankASC(rank int64) Node {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	var n Node
-	x := this.skipList.header
+	x := s.skipList.header
 	var traversed int64 = 0
-	for i := this.skipList.level - 1; i >= 0; i-- {
+	for i := s.skipList.level - 1; i >= 0; i-- {
 		for x.level[i].forward != nil && (traversed+x.level[i].span) <= rank {
 			traversed += x.level[i].span
 			x = x.level[i].forward
@@ -91,33 +91,33 @@ func (this *Set) GetElementByRankASC(rank int64) Node {
 	return n
 }
 
-//根据排名获取node 按降序获得 rank 从1开始
-func (this *Set) GetElementByRankDESC(rank int64) Node {
-	rank = this.GetLenth() - rank + 1
-	return this.GetElementByRankASC(rank)
+// 根据排名获取node 按降序获得 rank 从1开始
+func (s *Set) GetElementByRankDESC(rank int64) Node {
+	rank = s.GetLenth() - rank + 1
+	return s.GetElementByRankASC(rank)
 }
-func (this *Set) GetScore(key string) (float64, error) {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	if _, ok := this.dict[key]; !ok {
+func (s *Set) GetScore(key string) (float64, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if _, ok := s.dict[key]; !ok {
 		return 0, errors.New("not find key " + key)
 	}
-	score := *this.dict[key]
+	score := *s.dict[key]
 	return score, nil
 }
 
-//按升序排名 从1开始
-func (this *Set) GetRank(key string) (int64, error) {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	if _, ok := this.dict[key]; !ok {
+// 按升序排名 从1开始
+func (s *Set) GetRank(key string) (int64, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if _, ok := s.dict[key]; !ok {
 		return 0, errors.New("not find key " + key)
 	}
 	var x *node
 	var rank int64 = 0
-	score := *this.dict[key]
-	x = this.skipList.header
-	for i := this.skipList.level - 1; i >= 0; i-- {
+	score := *s.dict[key]
+	x = s.skipList.header
+	for i := s.skipList.level - 1; i >= 0; i-- {
 		for x.level[i].forward != nil && (x.level[i].forward.score < score || (x.level[i].forward.score == score && x.level[i].forward.key <= key)) {
 			rank += x.level[i].span
 			x = x.level[i].forward
@@ -129,27 +129,27 @@ func (this *Set) GetRank(key string) (int64, error) {
 	return 0, nil
 }
 
-//按降序排名
-func (this *Set) GetRankDESC(key string) (int64, error) {
-	rank, err := this.GetRank(key)
+// 按降序排名
+func (s *Set) GetRankDESC(key string) (int64, error) {
+	rank, err := s.GetRank(key)
 	if err != nil {
 		return 0, err
 	}
-	return this.GetLenth() - rank + 1, nil
+	return s.GetLenth() - rank + 1, nil
 }
 
-func (this *Set) Del(key string) error {
-	this.lock.Lock()
-	defer this.lock.Unlock()
-	if _, ok := this.dict[key]; !ok {
+func (s *Set) Del(key string) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if _, ok := s.dict[key]; !ok {
 		return errors.New("not find key " + key)
 	}
-	score := *this.dict[key]
+	score := *s.dict[key]
 	var update [DefaultMaxLevel]*node
 	var x *node
-	x = this.skipList.header
+	x = s.skipList.header
 	var i int
-	for i = this.skipList.level - 1; i >= 0; i-- {
+	for i = s.skipList.level - 1; i >= 0; i-- {
 		for x.level[i].forward != nil && (x.level[i].forward.score < score || (x.level[i].forward.score == score && x.level[i].forward.key < key)) {
 			x = x.level[i].forward
 		}
@@ -157,7 +157,7 @@ func (this *Set) Del(key string) error {
 	}
 	x = x.level[0].forward
 	if x != nil && score == x.score && key == x.key {
-		for i = 0; i < this.skipList.level; i++ {
+		for i = 0; i < s.skipList.level; i++ {
 			if update[i].level[i].forward == x {
 				update[i].level[i].span += x.level[i].span - 1
 				update[i].level[i].forward = x.level[i].forward
@@ -168,30 +168,30 @@ func (this *Set) Del(key string) error {
 		if x.level[0].forward != nil {
 			x.level[0].forward.backward = x.backward
 		} else {
-			this.skipList.tail = x.backward
+			s.skipList.tail = x.backward
 		}
-		for this.skipList.level > 1 && this.skipList.header.level[this.skipList.level-1].forward == nil {
-			this.skipList.level--
+		for s.skipList.level > 1 && s.skipList.header.level[s.skipList.level-1].forward == nil {
+			s.skipList.level--
 		}
-		this.skipList.length--
+		s.skipList.length--
 	}
-	delete(this.dict, key)
+	delete(s.dict, key)
 	return nil
 }
 
-func (this *Set) Set(key string, score float64) *node {
-	this.Del(key)
-	node := this.insert(key, score)
+func (s *Set) Set(key string, score float64) *node {
+	s.Del(key)
+	node := s.insert(key, score)
 	return node
 }
 
-//获取top n个数 按升序获取
-func (this *Set) GetTopN(n int64) []Node {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
+// 获取top n个数 按升序获取
+func (s *Set) GetTopN(n int64) []Node {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	var nodes []Node
 	var q int64 = 0
-	for x := this.skipList.header.level[0].forward; x != nil && q < n; x = x.level[0].forward {
+	for x := s.skipList.header.level[0].forward; x != nil && q < n; x = x.level[0].forward {
 		var node Node
 		node.Key = x.key
 		node.Score = x.score
@@ -201,13 +201,13 @@ func (this *Set) GetTopN(n int64) []Node {
 	return nodes
 }
 
-//获取top n个数 按降序获取
-func (this *Set) GetTopNDESC(n int64) []Node {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
+// 获取top n个数 按降序获取
+func (s *Set) GetTopNDESC(n int64) []Node {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	var nodes []Node
 	var q int64 = 0
-	for x := this.skipList.tail; x != nil && q < n; x = x.backward {
+	for x := s.skipList.tail; x != nil && q < n; x = x.backward {
 		var node Node
 		node.Key = x.key
 		node.Score = x.score
@@ -217,19 +217,19 @@ func (this *Set) GetTopNDESC(n int64) []Node {
 	return nodes
 }
 
-func (this *Set) insert(key string, score float64) *node {
-	this.lock.Lock()
-	defer this.lock.Unlock()
+func (s *Set) insert(key string, score float64) *node {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	var update [DefaultMaxLevel]*node
 	var x *node
 	var rank [DefaultMaxLevel]int64
 	var i, level int
 
-	x = this.skipList.header
+	x = s.skipList.header
 
-	for i = this.skipList.level - 1; i >= 0; i-- {
+	for i = s.skipList.level - 1; i >= 0; i-- {
 		rank[i] = 0
-		if i != this.skipList.level-1 {
+		if i != s.skipList.level-1 {
 			rank[i] = rank[i+1]
 		}
 		for x.level[i].forward != nil && (x.level[i].forward.score < score || (x.level[i].forward.score == score && x.level[i].forward.key < key)) {
@@ -238,51 +238,51 @@ func (this *Set) insert(key string, score float64) *node {
 		}
 		update[i] = x
 	}
-	level = this.randomLevel()
-	if level > this.skipList.level {
-		for i = this.skipList.level; i < level; i++ {
+	level = s.randomLevel()
+	if level > s.skipList.level {
+		for i = s.skipList.level; i < level; i++ {
 			rank[i] = 0
-			update[i] = this.skipList.header
-			update[i].level[i].span = this.skipList.length
+			update[i] = s.skipList.header
+			update[i].level[i].span = s.skipList.length
 		}
-		this.skipList.level = level
+		s.skipList.level = level
 	}
-	x = this.createNode(key, score)
+	x = s.createNode(key, score)
 	for i = 0; i < level; i++ {
 		x.level[i].forward = update[i].level[i].forward
 		update[i].level[i].forward = x
 		x.level[i].span = update[i].level[i].span - (rank[0] - rank[i])
 		update[i].level[i].span = (rank[0] - rank[i]) + 1
 	}
-	for i = level; i < this.skipList.level; i++ {
+	for i = level; i < s.skipList.level; i++ {
 		update[i].level[i].span++
 	}
-	if update[0] != this.skipList.header {
+	if update[0] != s.skipList.header {
 		x.backward = update[0]
 	}
 	if x.level[0].forward != nil {
 		x.level[0].forward.backward = x
 	} else {
-		this.skipList.tail = x
+		s.skipList.tail = x
 	}
-	this.skipList.length++
-	this.dict[key] = &x.score
+	s.skipList.length++
+	s.dict[key] = &x.score
 	return x
 }
 
-func (this *Set) GetLenth() int64 {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	return this.skipList.length
+func (s *Set) GetLenth() int64 {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.skipList.length
 }
 
-func (this *Set) GetLevel() int {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	return this.skipList.level
+func (s *Set) GetLevel() int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.skipList.level
 }
 
-func (this *Set) randomLevel() int {
+func (s *Set) randomLevel() int {
 	rand.Seed(time.Now().UnixNano())
 	p := 0.25
 	level := 1
@@ -294,10 +294,10 @@ func (this *Set) randomLevel() int {
 	}
 	return 32
 }
-func (this *Set) HasKey(key string) bool {
-	this.lock.RLock()
-	defer this.lock.RUnlock()
-	if _, ok := this.dict[key]; ok {
+func (s *Set) HasKey(key string) bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if _, ok := s.dict[key]; ok {
 		return true
 	}
 	return false
