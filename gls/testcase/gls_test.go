@@ -1,10 +1,11 @@
 // Copyright 2018 Huan Du. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
-package gls
+package testcase
 
 import (
 	"fmt"
+	"github.com/funbytes/modern-go/gls"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -29,6 +30,7 @@ func triggerMoreStack(n int, p payload) int {
 	}
 
 	// Avoid tail optimization.
+	p.data[n] = 1
 	return triggerMoreStack(n-1, p) + int(p.data[0]+p.data[len(p.data)-1])
 }
 
@@ -41,11 +43,12 @@ func (f closerFunc) Close() error {
 
 func TestTLS(t *testing.T) {
 	times := 1000
-	// idMap := map[unsafe.Pointer]struct{}{}
-	// idMapMu := sync.Mutex{}
+	idMap := map[unsafe.Pointer]struct{}{}
+	idMapMu := sync.Mutex{}
 
 	for i := 0; i < times; i++ {
 		t.Run(fmt.Sprintf("Round %v", i), func(t *testing.T) {
+			t.Parallel()
 			closed := false
 			k1 := tlsKey1{}
 			v1 := 1234
@@ -57,12 +60,12 @@ func TestTLS(t *testing.T) {
 			})
 			cnt := 0
 
-			Set(k1, MakeData(v1))
-			Set(k2, MakeData(v2))
-			Set(k3, MakeData(v3))
+			gls.Set(k1, gls.MakeData(v1))
+			gls.Set(k2, gls.MakeData(v2))
+			gls.Set(k3, gls.MakeData(v3))
 
 			cnt++
-			AtExit(func() {
+			gls.AtExit(func() {
 				cnt--
 
 				if expected := 0; cnt != expected {
@@ -71,7 +74,7 @@ func TestTLS(t *testing.T) {
 			})
 
 			cnt++
-			AtExit(func() {
+			gls.AtExit(func() {
 				cnt--
 
 				if expected := 1; cnt != expected {
@@ -79,39 +82,39 @@ func TestTLS(t *testing.T) {
 				}
 			})
 
-			if d, ok := Get(k1); !ok || d == nil || !reflect.DeepEqual(d.Value(), v1) {
+			if d, ok := gls.Get(k1); !ok || d == nil || !reflect.DeepEqual(d.Value(), v1) {
 				t.Fatalf("fail to get k1.")
 			}
 
-			if d, ok := Get(k2); !ok || d == nil || !reflect.DeepEqual(d.Value(), v2) {
+			if d, ok := gls.Get(k2); !ok || d == nil || !reflect.DeepEqual(d.Value(), v2) {
 				t.Fatalf("fail to get k2.")
 			}
 
 			triggerMoreStack(1000, payload{})
 
-			Reset()
+			gls.Reset()
 
 			if !closed {
 				t.Fatalf("v3.Close() is not called.")
 			}
 
-			if _, ok := Get(k1); ok {
+			if _, ok := gls.Get(k1); ok {
 				t.Fatalf("k1 should be empty.")
 			}
 
-			Set(k1, MakeData(v1))
-			Set(k1, MakeData(v2))
+			gls.Set(k1, gls.MakeData(v1))
+			gls.Set(k1, gls.MakeData(v2))
 
-			if d, ok := Get(k1); !ok || d == nil || !reflect.DeepEqual(d.Value(), v2) {
+			if d, ok := gls.Get(k1); !ok || d == nil || !reflect.DeepEqual(d.Value(), v2) {
 				t.Fatalf("fail to get k1.")
 			}
 
-			if _, ok := Get(k2); ok {
+			if _, ok := gls.Get(k2); ok {
 				t.Fatalf("k2 should be empty.")
 			}
 
 			cnt++
-			AtExit(func() {
+			gls.AtExit(func() {
 				cnt--
 
 				if expected := 2; cnt != expected {
@@ -119,20 +122,20 @@ func TestTLS(t *testing.T) {
 				}
 			})
 
-			id := ID()
-			if id == InvalidID {
+			id := gls.ID()
+
+			if id == nil {
 				t.Fatalf("fail to get ID. [id:%v]", id)
 			}
 
-			//
-			// idMapMu.Lock()
-			// defer idMapMu.Unlock()
-			//
-			// if _, ok := idMap[id]; ok {
-			// 	t.Fatalf("duplicated ID. [id:%v]", id)
-			// }
-			//
-			// idMap[id] = struct{}{}
+			idMapMu.Lock()
+			defer idMapMu.Unlock()
+
+			if _, ok := idMap[id]; ok {
+				t.Fatalf("duplicated ID. [id:%v]", id)
+			}
+
+			idMap[id] = struct{}{}
 		})
 	}
 }
@@ -140,31 +143,32 @@ func TestTLS(t *testing.T) {
 func TestUnload(t *testing.T) {
 	// Run test in a standalone goroutine.
 	t.Run("try unload", func(t *testing.T) {
-		// id := ID()
+		t.Parallel()
+		id := gls.ID()
 		exitCalled := false
-		AtExit(func() {
+		gls.AtExit(func() {
 			exitCalled = true
 		})
 		key := "key"
 		expected := "value"
-		Set(key, MakeData(expected))
+		gls.Set(key, gls.MakeData(expected))
 
-		if d, ok := Get(key); !ok {
+		if d, ok := gls.Get(key); !ok {
 			t.Fatalf("fail to get data. [key:%v]", key)
 		} else if actual, ok := d.Value().(string); !ok || actual != expected {
 			t.Fatalf("invalid value. [key:%v] [value:%v] [expected:%v]", key, actual, expected)
 		}
 
-		Unload()
+		gls.Unload()
 
 		// It's ok to call it again.
-		Unload()
+		gls.Unload()
 
-		if IsGlsEnabled(ID()) {
-			t.Fatalf("id must be changed after unload. [id:%v]", ID())
+		if gls.IsGlsEnabled(gls.ID()) {
+			t.Fatalf("id must be changed after unload. [id:%v]", id)
 		}
 
-		if _, ok := Get(key); ok {
+		if _, ok := gls.Get(key); ok {
 			t.Fatalf("key must be cleared. [key:%v]", key)
 		}
 
@@ -174,7 +178,7 @@ func TestUnload(t *testing.T) {
 	})
 }
 func TestShrinkStack(t *testing.T) {
-	const times = 1000
+	const times = 500
 	const gcTimes = 100
 	sleep := 100 * time.Microsecond
 	errors := make(chan error, times)
@@ -193,7 +197,7 @@ func TestShrinkStack(t *testing.T) {
 				}
 			}()
 
-			AtExit(func() {
+			gls.AtExit(func() {
 				atomic.AddInt64(&done, 1)
 				wg.Done()
 			})
@@ -215,7 +219,7 @@ func TestShrinkStack(t *testing.T) {
 	go func() {
 		// Avoid deadloop.
 		select {
-		case <-time.After(90 * time.Second):
+		case <-time.After(15 * time.Second):
 			exit <- false
 		}
 	}()
@@ -254,11 +258,11 @@ DumpError:
 	}
 }
 
-func TestUnloadInAtExitHandler(t *testing.T) {
+func TestUnloadInAtExitHandker(t *testing.T) {
 	ch := make(chan bool, 1)
 	go func() {
-		AtExit(func() {
-			Unload()
+		gls.AtExit(func() {
+			gls.Unload()
 		})
 		ch <- true
 	}()
@@ -268,24 +272,4 @@ func TestUnloadInAtExitHandler(t *testing.T) {
 		}
 	}()
 	<-ch
-}
-
-func TestDefaultOnCreate(t *testing.T) {
-	ch := make(chan bool, 1)
-	var goid unsafe.Pointer
-	go func() {
-		goid = ID()
-		Set("hello", MakeData("world"))
-		ch <- true
-	}()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("unexpected panic. [r:%v]", r)
-		}
-	}()
-	<-ch
-
-	if ID() == goid || IsGlsEnabled(goid) {
-		t.Fatal("gls isn't Unlock when goroutine exit")
-	}
 }

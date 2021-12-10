@@ -19,6 +19,7 @@ const shardsCount = 32
 var (
 	InvalidID   unsafe.Pointer = nil
 	globalSlots []*slotElem
+	once        sync.Once
 )
 
 type glsMapType map[unsafe.Pointer]*glsData
@@ -38,12 +39,19 @@ type glsData struct {
 // As we cannot hack main goroutine safely,
 // proactively create TLS for main to avoid hacking.
 func init() {
-	globalSlots = make([]*slotElem, shardsCount)
-	for i := 0; i < shardsCount; i++ {
-		globalSlots[i] = &slotElem{
-			dataMap: make(glsMapType),
-		}
+	gp := g.G()
+	if gp == nil {
+		return
 	}
+
+	once.Do(func() {
+		globalSlots = make([]*slotElem, shardsCount)
+		for i := 0; i < shardsCount; i++ {
+			globalSlots[i] = &slotElem{
+				dataMap: make(glsMapType),
+			}
+		}
+	})
 }
 
 // Get data by key.
