@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	protectRead  = syscall.PROT_READ | syscall.PROT_EXEC
-	protectWrite = syscall.PROT_READ | syscall.PROT_WRITE | syscall.PROT_EXEC
+	protectRead  = syscall.PROT_READ
+	protectWrite = syscall.PROT_READ | syscall.PROT_WRITE
 )
 
 func mprotect(ptr unsafe.Pointer, size, prot uintptr) {
