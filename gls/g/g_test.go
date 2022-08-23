@@ -1,13 +1,27 @@
-// Copyright 2018 Huan Du. All rights reserved.
-// Licensed under the MIT license that can be found in the LICENSE file.
-
 package g
 
 import (
+	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
-func TestG(t *testing.T) {
+func TestG1(t *testing.T) {
+	gp1 := G()
+	assert.True(t, gp1 != nil)
+
+	t.Run("G in another goroutine", func(t *testing.T) {
+		gp2 := G()
+		assert.True(t, gp2 != nil)
+		assert.True(t, gp1 != gp2)
+	})
+
+	gType := reflect.TypeOf(G0())
+	sf, ss := gType.FieldByName("labels")
+	assert.True(t, ss && sf.Offset > 0)
+}
+
+func TestG2(t *testing.T) {
 	gp1 := G()
 
 	if gp1 == nil {

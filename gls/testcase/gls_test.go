@@ -253,6 +253,10 @@ DumpError:
 		t.FailNow()
 	}
 
+	runtime.GC()
+	time.Sleep(5 * time.Minute)
+
+	t.Logf("kkkkkkk finalize count:%d", gls.Cnt)
 	if done != times {
 		t.Fatalf("some AtExit handlers are not called. [expected:%v] [actual:%v]", times, done)
 	}

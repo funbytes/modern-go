@@ -1,13 +1,16 @@
 // Copyright 2020 yc. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
+//go:build go1.7
 // +build go1.7
 
 // Package tls creates a GLS for a goroutine and release all resources at goroutine exit.
 package gls
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"sync"
 	"unsafe"
 
@@ -20,6 +23,7 @@ var (
 	InvalidID   unsafe.Pointer = nil
 	globalSlots []*slotElem
 	once        sync.Once
+	errLog      func(string)
 )
 
 type glsMapType map[unsafe.Pointer]*glsData
@@ -51,7 +55,16 @@ func init() {
 				dataMap: make(glsMapType),
 			}
 		}
+		errLog = func(s string) {
+			_, _ = fmt.Fprintf(os.Stderr, s)
+		}
 	})
+}
+
+func SetErrorLog(l func(string)) {
+	if l != nil {
+		errLog = l
+	}
 }
 
 // Get data by key.
@@ -158,12 +171,11 @@ func Unload() {
 	}
 
 	if !reset(se, gp, true) {
-		unhack(gp)
+		routineUnhack(gp)
 	}
 }
 
-func resetAtExit() {
-	se, gp := getSlotElem()
+func resetAtExit(se *slotElem, gp unsafe.Pointer) {
 	if se == nil || gp == nil {
 		return
 	}
@@ -221,7 +233,7 @@ func fetchDataMap(readonly bool) *glsData {
 
 	// Current goroutine is not hacked. Hack it.
 	if needHack {
-		if !hack(gp) {
+		if !routineHack(se, gp) {
 			delGlsData(se, gp)
 		}
 	}

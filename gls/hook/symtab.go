@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE-go file.
 
-package gls
+package hook
 
 // Layout of in-memory per-function information prepared by linker
 // See https://golang.org/s/go12symtab.

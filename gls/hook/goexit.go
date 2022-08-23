@@ -1,9 +1,10 @@
 // Copyright 2018 Huan Du. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
+//go:build go1.7
 // +build go1.7
 
-package gls
+package hook
 
 import (
 	"math"
@@ -70,7 +71,7 @@ func init() {
 func hackedGoexit()
 
 func hackedGoexit1() {
-	resetAtExit()
+	// gls.resetAtExit() // FIXME
 	runtime.Goexit()
 	panic("never return")
 }
