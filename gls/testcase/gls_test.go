@@ -263,7 +263,13 @@ DumpError:
 		t.FailNow()
 	}
 
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 1000; i++ {
+		go func() {
+			time.Sleep(2 * time.Millisecond)
+		}()
+	}
+
+	for i := 0; i < 2; i++ {
 		runtime.GC()
 		time.Sleep(1 * time.Second)
 	}

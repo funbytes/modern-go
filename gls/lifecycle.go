@@ -5,7 +5,6 @@ import (
 	"github.com/funbytes/modern-go/gls/g"
 	"reflect"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -38,12 +37,7 @@ var (
 	statusOffset uintptr
 )
 
-var (
-	lifeCycle *gcGuard
-)
-
-const goLabelsKey = "modern-go-gls-support-go1.17-or-higher"
-const lifeCycleGCInterval = time.Second * 1 // The pre-defined gc interval
+const finalizedLabel = "modern-go-gls-support-go1.17-or-higher"
 
 func init() {
 	offset := func(t reflect.Type, f string) uintptr {
@@ -56,11 +50,6 @@ func init() {
 	goidOffset = offset(gt, "goid")
 	labelsOffset = offset(gt, "labels")
 	statusOffset = offset(gt, "atomicstatus")
-
-	// // life cycle
-	// lifeCycle = &gcGuard{
-	// 	lcGCTimer: time.AfterFunc(lifeCycleGCInterval, clearDeadStore),
-	// }
 }
 
 func routineLabels(gp unsafe.Pointer) labelMap {
@@ -79,6 +68,9 @@ func routineStatus(gp unsafe.Pointer) GStatus {
 }
 
 func routineSetLabels(gp unsafe.Pointer, labels labelMap) {
+	if _, ok := labels[finalizedLabel]; !ok {
+		labels[finalizedLabel] = "hello world"
+	}
 	labelsPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
 	atomic.StorePointer(labelsPtr, unsafe.Pointer(&labels))
 }
@@ -91,101 +83,23 @@ func routineHack(se *slotElem, gp unsafe.Pointer) bool {
 func routineUnhack(gp unsafe.Pointer) {
 }
 
-type gcGuard struct {
-	lcLock    sync.Mutex  // The Lock to control accessing of storages
-	lcGCTimer *time.Timer // The timer of storage's garbage collector
-	lcIndex   uint        // Index for globalSlots
-}
-
-// func registerFinalizer(se *slotElem, gp unsafe.Pointer) {
-// 	// lifeCycle.lcLock.Lock()
-// 	// lifeCycle.lcLock.Unlock()
-// 	// if lifeCycle.lcGCTimer == nil {
-// 	// 	lifeCycle.lcGCTimer = time.AfterFunc(lifeCycleGCInterval, clearDeadStore)
-// 	// }
-// }
-
-// type slotPair struct {
-// 	se *slotElem
-// 	gp unsafe.Pointer
-// }
-
-// var Cnt atomic.Int32
-// var DeadCnt atomic.Int32
-
-// func clearDeadStore() {
-// 	Cnt.Add(1)
-//
-// 	var allCnt, deadCnt int
-// 	var gplist []*slotPair
-//
-// 	// lifeCycle.lcLock.Lock()
-// 	// lifeCycle.lcIndex++
-// 	// index := lifeCycle.lcIndex
-// 	// lifeCycle.lcLock.Unlock()
-//
-// 	for i := 0; i < shardsCount; i++ {
-// 		se := globalSlots[i]
-// 		se.rwlock.RLock()
-// 		for k, _ := range se.dataMap {
-// 			allCnt++
-// 			gplist = append(gplist, &slotPair{
-// 				se: se,
-// 				gp: k,
-// 			})
-// 		}
-// 		se.rwlock.RUnlock()
-// 	}
-//
-// 	var stat []GStatus
-// 	for _, v := range gplist {
-// 		status := routineStatus(v.gp)
-// 		if status == GDead {
-// 			deadCnt++
-// 			DeadCnt.Add(1)
-// 			resetAtExit(v.se, v.gp)
-// 		} else {
-// 			stat = append(stat, status)
-// 		}
-// 	}
-//
-// 	fmt.Printf("allCnt:%d deadCnt:%d status:%v \n", allCnt, deadCnt, stat)
-//
-// 	lifeCycle.lcLock.Lock()
-// 	defer lifeCycle.lcLock.Unlock()
-// 	lifeCycle.lcGCTimer.Reset(lifeCycleGCInterval)
-// 	// if allCnt > deadCnt {
-// 	// 	lifeCycle.lcGCTimer.Reset(lifeCycleGCInterval)
-// 	// } else {
-// 	// 	lifeCycle.lcGCTimer = nil
-// 	// }
-// }
-
 // register Register finalizer into goroutine's lifeCycle
-func registerFinalizer(se *slotElem, gp unsafe.Pointer) {
+func registerFinalizer(se *slotElem, gp unsafe.Pointer) bool {
 	if routineStatus(gp) == GDead {
-		return
+		return false
 	}
 
 	labels := routineLabels(gp)
-	if labels == nil {
+	_, ok := labels[finalizedLabel]
+	if labels == nil || !ok {
 		labels = make(labelMap)
 		routineSetLabels(gp, labels)
-		se.rwlock.Lock()
-		defer se.rwlock.Unlock()
-		se.labels = uintptr(unsafe.Pointer(&labels))
 		runtime.SetFinalizer(&labels, func(_ interface{}) {
 			finalize(se, gp)
 		})
-	} else if _, ok := getGlsData(se, gp); ok {
-		se.rwlock.Lock()
-		defer se.rwlock.Unlock()
-		if se.labels != uintptr(unsafe.Pointer(&labels)) {
-			runtime.SetFinalizer(&labels, func(_ interface{}) {
-				finalize(se, gp)
-			})
-		}
 	}
+
+	return routineStatus(gp) != GDead
 }
 
 var Cnt atomic.Int32
@@ -206,10 +120,13 @@ func finalize(se *slotElem, gp unsafe.Pointer) {
 				}
 			}()
 
-			registerFinalizer(se, gp)
 			Cnt.Add(1)
+			time.Sleep(10 * time.Millisecond)
+			if !registerFinalizer(se, gp) {
+				DeadCnt.Add(1)
+				resetAtExit(se, gp)
+			}
 		}()
-
 		return
 	}
 

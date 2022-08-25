@@ -32,7 +32,6 @@ type dataMapType map[interface{}]Data
 type slotElem struct {
 	rwlock  sync.RWMutex
 	dataMap glsMapType
-	labels  uintptr
 }
 
 type glsData struct {
