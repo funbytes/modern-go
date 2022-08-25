@@ -1,6 +1,7 @@
 // Copyright 2020 yc. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
+//go:build go1.7
 // +build go1.7
 
 // Package tls creates a GLS for a goroutine and release all resources at goroutine exit.
@@ -14,7 +15,7 @@ import (
 	"github.com/funbytes/modern-go/gls/g"
 )
 
-const shardsCount = 32
+const shardsCount = 31
 
 var (
 	InvalidID   unsafe.Pointer = nil
