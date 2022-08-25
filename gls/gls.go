@@ -17,7 +17,7 @@ import (
 	"github.com/funbytes/modern-go/gls/g"
 )
 
-const shardsCount = 32
+const shardsCount = 1
 
 var (
 	InvalidID   unsafe.Pointer = nil
@@ -32,6 +32,7 @@ type dataMapType map[interface{}]Data
 type slotElem struct {
 	rwlock  sync.RWMutex
 	dataMap glsMapType
+	labels  uintptr
 }
 
 type glsData struct {

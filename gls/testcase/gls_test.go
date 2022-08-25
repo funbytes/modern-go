@@ -177,9 +177,13 @@ func TestUnload(t *testing.T) {
 		}
 	})
 }
+
+var testCnt1 atomic.Int32
+var testCnt2 atomic.Int32
+
 func TestShrinkStack(t *testing.T) {
 	const times = 500
-	const gcTimes = 100
+	const gcTimes = 10
 	sleep := 100 * time.Microsecond
 	errors := make(chan error, times)
 	var done int64
@@ -197,10 +201,16 @@ func TestShrinkStack(t *testing.T) {
 				}
 			}()
 
+			testCnt1.Add(1)
 			gls.AtExit(func() {
 				atomic.AddInt64(&done, 1)
 				wg.Done()
+				testCnt2.Add(1)
 			})
+
+			// FIXME: 开启这行testcase就能通过
+			// time.Sleep(2 * time.Second)
+
 			n := rand.Intn(gcTimes)
 
 			for j := 0; j < n; j++ {
@@ -253,10 +263,13 @@ DumpError:
 		t.FailNow()
 	}
 
-	runtime.GC()
-	time.Sleep(5 * time.Minute)
+	for i := 0; i < 50; i++ {
+		runtime.GC()
+		time.Sleep(1 * time.Second)
+	}
 
-	t.Logf("kkkkkkk finalize count:%d", gls.Cnt)
+	t.Logf("kkkkkkk finalize count:%d", gls.Cnt.Load())
+	t.Logf("ccccccc finalize testCnt1:%d testCnt2:%d DeadCnt:%d", testCnt1.Load(), testCnt2.Load(), gls.DeadCnt.Load())
 	if done != times {
 		t.Fatalf("some AtExit handlers are not called. [expected:%v] [actual:%v]", times, done)
 	}
