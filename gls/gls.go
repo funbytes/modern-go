@@ -227,7 +227,7 @@ func findSlot(gp unsafe.Pointer) *slotElem {
 		return nil
 	}
 
-	gpid := *(*int64)(gp)
+	gpid := uintptr(gp)
 	shardIndex := gpid % shardsCount
 	return globalSlots[shardIndex]
 }
