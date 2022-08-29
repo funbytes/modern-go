@@ -15,12 +15,14 @@ func getgp() unsafe.Pointer
 func getg0() interface{}
 
 // G returns current g (the goroutine struct) to user space.
+//
 //go:nosplit
 func G() unsafe.Pointer {
 	return getgp()
 }
 
 // G0 returns the g0, the main goroutine.
+//
 //go:nosplit
 func G0() interface{} {
 	return getg0()

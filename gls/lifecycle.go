@@ -52,6 +52,12 @@ func init() {
 	statusOffset = offset(gt, "atomicstatus")
 }
 
+// Goid get the unique goid of the current routine.
+func routineGoId(gp unsafe.Pointer) int64 {
+	goidPtr := (*int64)(unsafe.Pointer(uintptr(gp) + goidOffset))
+	return atomic.LoadInt64(goidPtr)
+}
+
 func routineLabels(gp unsafe.Pointer) labelMap {
 	labelsPPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
 	labelsPtr := atomic.LoadPointer(labelsPPtr)

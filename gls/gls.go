@@ -17,7 +17,7 @@ import (
 	"github.com/funbytes/modern-go/gls/g"
 )
 
-const shardsCount = 1
+const shardsCount = 31
 
 var (
 	InvalidID   unsafe.Pointer = nil
@@ -246,7 +246,7 @@ func findSlot(gp unsafe.Pointer) *slotElem {
 		return nil
 	}
 
-	gpid := *(*int64)(gp)
+	gpid := routineGoId(gp)
 	shardIndex := gpid % shardsCount
 	return globalSlots[shardIndex]
 }
