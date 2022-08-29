@@ -87,14 +87,14 @@ func registerFinalizer(se *slotElem, gp unsafe.Pointer, inGoroutine bool) bool {
 	idStr := strconv.Itoa(int(id))
 	oldID, ok := labels[goLabelsKey]
 	if ok {
-		// 说明已经注册过了,不需要再次处理
+		// Has already been registered and does not need to be processed again
 		if oldID == idStr {
 			return true
 		} else if !inGoroutine {
 			return false
 		}
 	}
-	// 拷贝label，重新注册，保证label是只读
+	// Copy the label, re-register, and ensure that the label is read-only
 	nLabels := make(labelMap)
 	for k, v := range labels {
 		nLabels[k] = v
