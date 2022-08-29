@@ -1,8 +1,8 @@
 // Copyright 2018 Huan Du. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
-//go:build go1.7
-// +build go1.7
+//go:build !go1.17
+// +build !go1.17
 
 package hook
 
@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"unsafe"
 )
+
+var ResetAtExit func()
 
 var (
 	hackedGoexitFn   uintptr
@@ -71,18 +73,18 @@ func init() {
 func hackedGoexit()
 
 func hackedGoexit1() {
-	// gls.resetAtExit() // FIXME
+	ResetAtExit()
 	runtime.Goexit()
 	panic("never return")
 }
 
 const align = 4
 
-func hack(gp unsafe.Pointer) (success bool) {
+func Hack(gp unsafe.Pointer) (success bool) {
 	return swapGoexit(gp, originalGoexitFn, hackedGoexitFn)
 }
 
-func unhack(gp unsafe.Pointer) (success bool) {
+func Unhack(gp unsafe.Pointer) (success bool) {
 	return swapGoexit(gp, hackedGoexitFn, originalGoexitFn)
 }
 

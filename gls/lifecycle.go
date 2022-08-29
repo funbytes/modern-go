@@ -1,12 +1,13 @@
+//go:build go1.17
+// +build go1.17
+
 package gls
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls/g"
-	"reflect"
 	"runtime"
+	"strconv"
 	"sync/atomic"
-	"time"
 	"unsafe"
 )
 
@@ -31,31 +32,16 @@ const (
 // that admits incremental immutable modification more efficiently.
 type labelMap map[string]string
 
-var (
-	goidOffset   uintptr
-	labelsOffset uintptr
-	statusOffset uintptr
-)
+const goLabelsKey = "[=-*(goLabelsKey)*-=]"
 
-const finalizedLabel = "modern-go-gls-support-go1.17-or-higher"
-
-func init() {
-	offset := func(t reflect.Type, f string) uintptr {
-		if field, found := t.FieldByName(f); found {
-			return field.Offset
-		}
-		panic(fmt.Sprintf("init routine failed, cannot find g.%s, version=%s", f, runtime.Version()))
+func routineLabelPtr(gp unsafe.Pointer) (labelMap, unsafe.Pointer) {
+	labelsPPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
+	labelsPtr := atomic.LoadPointer(labelsPPtr)
+	if labelsPtr == nil {
+		return nil, labelsPtr
 	}
-	gt := reflect.TypeOf(g.G0())
-	goidOffset = offset(gt, "goid")
-	labelsOffset = offset(gt, "labels")
-	statusOffset = offset(gt, "atomicstatus")
-}
-
-// Goid get the unique goid of the current routine.
-func routineGoId(gp unsafe.Pointer) int64 {
-	goidPtr := (*int64)(unsafe.Pointer(uintptr(gp) + goidOffset))
-	return atomic.LoadInt64(goidPtr)
+	// see SetGoroutineLabels, labelsPtr is `*labelMap`
+	return *(*labelMap)(labelsPtr), labelsPtr
 }
 
 func routineLabels(gp unsafe.Pointer) labelMap {
@@ -68,74 +54,79 @@ func routineLabels(gp unsafe.Pointer) labelMap {
 	return *(*labelMap)(labelsPtr)
 }
 
+func routineID(gp unsafe.Pointer) int64 {
+	return *(*int64)(unsafe.Pointer(uintptr(gp) + goidOffset))
+}
+
 func routineStatus(gp unsafe.Pointer) GStatus {
 	statusPtr := (*uint32)(unsafe.Pointer(uintptr(gp) + statusOffset))
 	return GStatus(atomic.LoadUint32(statusPtr))
 }
 
-func routineSetLabels(gp unsafe.Pointer, labels labelMap) {
-	if _, ok := labels[finalizedLabel]; !ok {
-		labels[finalizedLabel] = "hello world"
-	}
+func routineSetLabels(gp unsafe.Pointer, old unsafe.Pointer, labels *labelMap) bool {
 	labelsPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
-	atomic.StorePointer(labelsPtr, unsafe.Pointer(&labels))
+	return atomic.CompareAndSwapPointer(labelsPtr, old, unsafe.Pointer(labels))
 }
 
 func routineHack(se *slotElem, gp unsafe.Pointer) bool {
-	registerFinalizer(se, gp)
-	return true
+	return registerFinalizer(se, gp, true)
 }
 
 func routineUnhack(gp unsafe.Pointer) {
 }
 
 // register Register finalizer into goroutine's lifeCycle
-func registerFinalizer(se *slotElem, gp unsafe.Pointer) bool {
-	if routineStatus(gp) == GDead {
-		return false
+func registerFinalizer(se *slotElem, gp unsafe.Pointer, inGoroutine bool) bool {
+	id := routineGoId(gp)
+	labels, old := routineLabelPtr(gp)
+	if !inGoroutine {
+		if routineStatus(gp) == GDead || routineID(gp) != id || labels == nil {
+			return false
+		}
 	}
-
-	labels := routineLabels(gp)
-	_, ok := labels[finalizedLabel]
-	if labels == nil || !ok {
-		labels = make(labelMap)
-		routineSetLabels(gp, labels)
-		runtime.SetFinalizer(&labels, func(_ interface{}) {
-			finalize(se, gp)
-		})
+	idStr := strconv.Itoa(int(id))
+	oldID, ok := labels[goLabelsKey]
+	if ok {
+		// 说明已经注册过了,不需要再次处理
+		if oldID == idStr {
+			return true
+		} else if !inGoroutine {
+			return false
+		}
 	}
-
-	return routineStatus(gp) != GDead
+	// 拷贝label，重新注册，保证label是只读
+	nLabels := make(labelMap)
+	for k, v := range labels {
+		nLabels[k] = v
+	}
+	nLabels[goLabelsKey] = idStr
+	nPtr := &nLabels
+	if !routineSetLabels(gp, old, nPtr) {
+		// 说明是在goroutine外执行，有修改，递归执行一次
+		return registerFinalizer(se, gp, inGoroutine)
+	}
+	runtime.SetFinalizer(nPtr, func(_ interface{}) {
+		finalize(se, gp)
+	})
+	return true
 }
 
-var Cnt atomic.Int32
-var DeadCnt atomic.Int32
-
 func finalize(se *slotElem, gp unsafe.Pointer) {
-	if gp == nil || se == nil {
+	id := routineGoId(gp)
+	if routineStatus(gp) == GDead || routineID(gp) != id || routineLabels(gp) == nil {
+		resetAtExit(se, gp)
 		return
 	}
-
 	// Maybe others (pprof) replaced our labels, register it again.
-	status := routineStatus(gp)
-	if status != GDead {
-		go func() {
-			defer func() {
-				if err := recover(); err != nil {
-					errLog(fmt.Sprintf("store.finalize panic error: %v", err))
-				}
-			}()
-
-			Cnt.Add(1)
-			time.Sleep(10 * time.Millisecond)
-			if !registerFinalizer(se, gp) {
-				DeadCnt.Add(1)
-				resetAtExit(se, gp)
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				errLog(fmt.Sprintf("store.finalize panic error: %v", err))
 			}
 		}()
-		return
-	}
 
-	DeadCnt.Add(1)
-	resetAtExit(se, gp)
+		if !registerFinalizer(se, gp, false) {
+			resetAtExit(se, gp)
+		}
+	}()
 }

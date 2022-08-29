@@ -178,8 +178,8 @@ func TestUnload(t *testing.T) {
 	})
 }
 
-var testCnt1 atomic.Int32
-var testCnt2 atomic.Int32
+var testCnt1 int32
+var testCnt2 int32
 
 func TestShrinkStack(t *testing.T) {
 	const times = 500
@@ -201,11 +201,11 @@ func TestShrinkStack(t *testing.T) {
 				}
 			}()
 
-			testCnt1.Add(1)
+			atomic.AddInt32(&testCnt1, 1)
 			gls.AtExit(func() {
 				atomic.AddInt64(&done, 1)
 				wg.Done()
-				testCnt2.Add(1)
+				atomic.AddInt32(&testCnt2, 1)
 			})
 
 			// FIXME: 开启这行testcase就能通过
@@ -274,8 +274,8 @@ DumpError:
 		time.Sleep(1 * time.Second)
 	}
 
-	t.Logf("kkkkkkk finalize count:%d", gls.Cnt.Load())
-	t.Logf("ccccccc finalize testCnt1:%d testCnt2:%d DeadCnt:%d", testCnt1.Load(), testCnt2.Load(), gls.DeadCnt.Load())
+	// t.Logf("kkkkkkk finalize count:%d", gls.Cnt.Load())
+	// t.Logf("ccccccc finalize testCnt1:%d testCnt2:%d DeadCnt:%d", testCnt1.Load(), testCnt2.Load(), gls.DeadCnt.Load())
 	if done != times {
 		t.Fatalf("some AtExit handlers are not called. [expected:%v] [actual:%v]", times, done)
 	}
