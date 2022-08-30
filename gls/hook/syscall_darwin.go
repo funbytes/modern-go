@@ -8,9 +8,10 @@ package hook
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls/c"
 	"syscall"
 	"unsafe"
+
+	"github.com/funbytes/modern-go/gls/c"
 )
 
 const (

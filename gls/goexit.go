@@ -4,9 +4,10 @@
 package gls
 
 import (
+	"unsafe"
+
 	"github.com/funbytes/modern-go/gls/g"
 	"github.com/funbytes/modern-go/gls/hook"
-	"unsafe"
 )
 
 func init() {

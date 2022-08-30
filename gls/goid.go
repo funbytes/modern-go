@@ -2,11 +2,12 @@ package gls
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls/g"
 	"reflect"
 	"runtime"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/funbytes/modern-go/gls/g"
 )
 
 var (

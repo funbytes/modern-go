@@ -5,7 +5,6 @@ package testcase
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -14,6 +13,8 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/funbytes/modern-go/gls"
 )
 
 type tlsKey1 struct{}
