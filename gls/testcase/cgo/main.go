@@ -11,11 +11,12 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls"
 	"time"
+
+	"github.com/funbytes/modern-go/gls"
 )
 
-func main()  {
+func main() {
 	C.printint(C.int(44))
 
 	go func() {
@@ -29,6 +30,6 @@ func main()  {
 		fmt.Printf("%v\n", cc.Value().(string))
 	}()
 
-	time.Sleep(5*time.Second)
+	time.Sleep(5 * time.Second)
 	fmt.Printf("main exit")
 }

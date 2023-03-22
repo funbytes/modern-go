@@ -1,13 +1,17 @@
 // Copyright 2018 Huan Du. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
-package gls
+//go:build !go1.17
+// +build !go1.17
+
+package hook
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls/c"
 	"syscall"
 	"unsafe"
+
+	"github.com/funbytes/modern-go/gls/c"
 )
 
 const (

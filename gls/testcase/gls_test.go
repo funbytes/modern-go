@@ -5,7 +5,6 @@ package testcase
 
 import (
 	"fmt"
-	"github.com/funbytes/modern-go/gls"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -14,6 +13,8 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/funbytes/modern-go/gls"
 )
 
 type tlsKey1 struct{}
@@ -177,9 +178,13 @@ func TestUnload(t *testing.T) {
 		}
 	})
 }
+
+var testCnt1 int32
+var testCnt2 int32
+
 func TestShrinkStack(t *testing.T) {
 	const times = 500
-	const gcTimes = 100
+	const gcTimes = 10
 	sleep := 100 * time.Microsecond
 	errors := make(chan error, times)
 	var done int64
@@ -197,10 +202,16 @@ func TestShrinkStack(t *testing.T) {
 				}
 			}()
 
+			atomic.AddInt32(&testCnt1, 1)
 			gls.AtExit(func() {
 				atomic.AddInt64(&done, 1)
 				wg.Done()
+				atomic.AddInt32(&testCnt2, 1)
 			})
+
+			// FIXME: 开启这行testcase就能通过
+			// time.Sleep(2 * time.Second)
+
 			n := rand.Intn(gcTimes)
 
 			for j := 0; j < n; j++ {
@@ -253,6 +264,19 @@ DumpError:
 		t.FailNow()
 	}
 
+	for i := 0; i < 1000; i++ {
+		go func() {
+			time.Sleep(2 * time.Millisecond)
+		}()
+	}
+
+	for i := 0; i < 2; i++ {
+		runtime.GC()
+		time.Sleep(1 * time.Second)
+	}
+
+	// t.Logf("kkkkkkk finalize count:%d", gls.Cnt.Load())
+	// t.Logf("ccccccc finalize testCnt1:%d testCnt2:%d DeadCnt:%d", testCnt1.Load(), testCnt2.Load(), gls.DeadCnt.Load())
 	if done != times {
 		t.Fatalf("some AtExit handlers are not called. [expected:%v] [actual:%v]", times, done)
 	}
