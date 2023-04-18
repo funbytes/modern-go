@@ -35,7 +35,7 @@ type labelMap map[string]string
 const goLabelsKey = "[=-*(goLabelsKey)*-=]"
 
 func routineLabelPtr(gp unsafe.Pointer) (labelMap, unsafe.Pointer) {
-	labelsPPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
+	labelsPPtr := (*unsafe.Pointer)(unsafe.Add(gp, labelsOffset))
 	labelsPtr := atomic.LoadPointer(labelsPPtr)
 	if labelsPtr == nil {
 		return nil, labelsPtr
@@ -45,7 +45,7 @@ func routineLabelPtr(gp unsafe.Pointer) (labelMap, unsafe.Pointer) {
 }
 
 func routineLabels(gp unsafe.Pointer) labelMap {
-	labelsPPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
+	labelsPPtr := (*unsafe.Pointer)(unsafe.Add(gp, labelsOffset))
 	labelsPtr := atomic.LoadPointer(labelsPPtr)
 	if labelsPtr == nil {
 		return nil
@@ -55,16 +55,16 @@ func routineLabels(gp unsafe.Pointer) labelMap {
 }
 
 func routineID(gp unsafe.Pointer) int64 {
-	return *(*int64)(unsafe.Pointer(uintptr(gp) + goidOffset))
+	return *(*int64)(unsafe.Add(gp, goidOffset))
 }
 
 func routineStatus(gp unsafe.Pointer) GStatus {
-	statusPtr := (*uint32)(unsafe.Pointer(uintptr(gp) + statusOffset))
+	statusPtr := (*uint32)(unsafe.Add(gp, statusOffset))
 	return GStatus(atomic.LoadUint32(statusPtr))
 }
 
 func routineSetLabels(gp unsafe.Pointer, old unsafe.Pointer, labels *labelMap) bool {
-	labelsPtr := (*unsafe.Pointer)(unsafe.Pointer(uintptr(gp) + labelsOffset))
+	labelsPtr := (*unsafe.Pointer)(unsafe.Add(gp, labelsOffset))
 	return atomic.CompareAndSwapPointer(labelsPtr, old, unsafe.Pointer(labels))
 }
 
