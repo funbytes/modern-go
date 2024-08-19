@@ -1,9 +1,9 @@
-package gls
+package v1
 
 import (
 	"unsafe"
 
-	"github.com/funbytes/modern-go/gls/g"
+	"github.com/funbytes/modern-go/gls/v1/g"
 )
 
 func SetErrorLog(l func(string)) {

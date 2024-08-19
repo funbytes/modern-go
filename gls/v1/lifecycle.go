@@ -1,7 +1,7 @@
 //go:build go1.17
 // +build go1.17
 
-package gls
+package v1
 
 import (
 	"fmt"

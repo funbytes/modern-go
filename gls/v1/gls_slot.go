@@ -5,7 +5,7 @@
 // +build go1.7
 
 // Package tls creates a GLS for a goroutine and release all resources at goroutine exit.
-package gls
+package v1
 
 import (
 	"fmt"

@@ -13,20 +13,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/funbytes/modern-go/gls"
+	v1 "github.com/funbytes/modern-go/gls/v1"
 )
 
 func main() {
 	C.printint(C.int(44))
 
 	go func() {
-		gls.AtExit(func() {
-			fmt.Printf("goroutine:%d exit\n", gls.ID())
+		v1.AtExit(func() {
+			fmt.Printf("goroutine:%d exit\n", v1.ID())
 		})
 
-		fmt.Printf("goroutine:%d start\n", gls.ID())
-		gls.Set("kk1", gls.MakeData("ccc"))
-		cc, _ := gls.Get("kk1")
+		fmt.Printf("goroutine:%d start\n", v1.ID())
+		v1.Set("kk1", v1.MakeData("ccc"))
+		cc, _ := v1.Get("kk1")
 		fmt.Printf("%v\n", cc.Value().(string))
 	}()
 

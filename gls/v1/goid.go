@@ -1,4 +1,4 @@
-package gls
+package v1
 
 import (
 	"fmt"
