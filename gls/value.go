@@ -1,4 +1,4 @@
-package tls
+package gls
 
 import (
 	"io"

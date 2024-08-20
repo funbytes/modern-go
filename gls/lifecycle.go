@@ -1,13 +1,13 @@
-package tls
+package gls
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 	"unsafe"
 
+	"github.com/funbytes/modern-go/gls/g"
 	"github.com/modern-go/reflect2"
-	"gitlab-ee.funplus.io/watcher/watcher/misc/gotls/g"
-	"gitlab-ee.funplus.io/watcher/watcher/misc/wpool"
 )
 
 var (
@@ -57,7 +57,13 @@ func unregisterFinalizer() {
 }
 
 func finalize(id int64) {
-	wpool.Go(func() {
+	// Maybe others (pprof) replaced our labels, register it again.
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				errLog(fmt.Sprintf("store.finalize panic error: %v", err))
+			}
+		}()
 		resetAtExit(id)
-	})
+	}()
 }

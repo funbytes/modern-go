@@ -1,17 +1,21 @@
 // Package tls creates a TLS for a goroutine and release all resources at goroutine exit.
-package tls
+package gls
 
 import (
+	"fmt"
 	"io"
+	"os"
 
-	"gitlab-ee.funplus.io/watcher/watcher/misc/concurrent"
-	"gitlab-ee.funplus.io/watcher/watcher/misc/gotls/g"
+	"github.com/funbytes/modern-go/gls/g"
+
+	"github.com/sandwich-go/boost/xcontainer/smap"
 )
 
-const goroutineCount = 10240
+const goroutineCount = 128
 
 var (
-	tlsDataMap = concurrent.StaticBucketAnyValueHashMap[int64, *tlsData]{}
+	tlsDataMap *smap.Concurrent[int64, *tlsData]
+	errLog     func(string)
 )
 
 type tlsData struct {
@@ -24,7 +28,10 @@ type tlsData struct {
 type dataMap map[any]Data
 
 func init() {
-	tlsDataMap.Init(goroutineCount)
+	tlsDataMap = smap.NewWithSharedCount[int64, *tlsData](goroutineCount)
+	errLog = func(s string) {
+		_, _ = fmt.Fprintf(os.Stderr, s)
+	}
 }
 
 // Get data by key.
@@ -132,7 +139,7 @@ func reset(complete bool) {
 	id := ID()
 
 	if complete {
-		dm, ok := tlsDataMap.Del(id)
+		dm, ok := tlsDataMap.GetAndRemove(id)
 		if ok {
 			data = dm.data
 			needUnHack = true
@@ -162,7 +169,7 @@ func Unload() {
 }
 
 func resetAtExit(id int64) {
-	dm, ok := tlsDataMap.Del(id)
+	dm, ok := tlsDataMap.GetAndRemove(id)
 	if !ok {
 		return
 	}
@@ -198,14 +205,14 @@ func fetchDataMap() *tlsData {
 	id := ID()
 
 	// Try to find saved data.
-	dm, get := tlsDataMap.GetOrInsert(id, func(int64) *tlsData {
+	dm, isSet := tlsDataMap.GetOrSetFunc(id, func(int64) *tlsData {
 		return &tlsData{
 			data: dataMap{},
 			kv:   map[any]any{},
 		}
 	})
 	// Current goroutine is not hacked. Hack it.
-	if !get {
+	if isSet {
 		registerFinalizer(id, g.G())
 	}
 	return dm

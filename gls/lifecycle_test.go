@@ -1,4 +1,4 @@
-package tls
+package gls
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"gitlab-ee.funplus.io/watcher/watcher/misc/godebugtag"
-	"gitlab-ee.funplus.io/watcher/watcher/misc/gotls/g"
+	"github.com/funbytes/modern-go/gls/g"
+	"github.com/funbytes/modern-go/gls/utils"
 )
 
 // TestSetLabels 测试SetLabels的race检测
@@ -30,16 +30,18 @@ func TestSetLabels(t *testing.T) {
 		}
 		os.Exit(0)
 	}()
-	godebugtag.SetLabels(func() []string {
+
+	utils.SetLabels(func() []string {
 		return []string{"1", "2"}
 	})
+
 	AtExit(func() {})
 	v := routineTimer(g.G())
 	t.Log("--->", v)
 	for i := 0; i < 5; i++ {
 		d := i
 		go func(index int) {
-			godebugtag.AddGoroutineTag()
+			utils.AddGoroutineTag()
 			v := routineTimer(g.G())
 			t.Log("--->", d, v)
 			AtExit(func() {})
